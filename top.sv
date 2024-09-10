@@ -108,6 +108,7 @@ module testbench();
           $display("Simulation succeeded");
           $stop;
         end else if (DataAdr !== 80) begin
+          $display("{DataAdr: %h, WriteData: %0d}", DataAdr, WriteData);
           $display("Simulation failed");
           $stop;
         end
@@ -147,7 +148,7 @@ module imem(input  logic [31:0] A,
    logic [31:0]                 RAM[63:0];
 
   initial
-    $readmemh("memfile.dat",RAM);
+    $readmemh("memfile.dat",RAM, 18, 0);
 
   assign RD = RAM[A[31:2]]; // word aligned
 endmodule
@@ -284,16 +285,32 @@ module Extend(input  logic [31:7] Instr,
               input logic [1:0]   ImmSrc,
               output logic [31:0] ImmExt);
 
+  assign zero2 = 2'b00;
+  assign one2 = 2'b01;
+  assign two2 = 2'b10;
+  assign three2 = 2'b11;
+  assign Instr31 = Instr[31];
+  assign Instr31to20 = Instr[31:20];
+  assign Instr31to25 = Instr[31:25];
+  assign Instr11to7 = Instr[11:7];
+  assign Instr7 = Instr[7];
+  assign Instr30to25 = Instr[30:25];
+  assign Instr11to8 = Instr[11:8];
+  assign zero1 = 1'b0;
+  assign Instr19to12 = Instr[19:12];
+  assign Instr20 = Instr[20];
+  assign Instr30to21 = Instr[30:21];
+
   always_comb
     case(ImmSrc)
       // I-type
-      2'b00:   ImmExt = {{20{Instr[31]}}, Instr[31:20]};
+      zero2:   ImmExt = {{20{Instr31}}, Instr31to20};
       // S-type (Stores)
-      2'b01:   ImmExt = {{20{Instr[31]}}, Instr[31:25], Instr[11:7]};
+      one2:   ImmExt = {{20{Instr31}}, Instr31to25, Instr11to7};
       // B-type (Branches)
-      2'b10:   ImmExt = {{20{Instr[31]}}, Instr[7], Instr[30:25], Instr[11:8], 1'b0};
+      two2:   ImmExt = {{20{Instr31}}, Instr7, Instr30to25, Instr11to8, zero1};
       // J-type (Jumps)
-      2'b11:   ImmExt = {{12{Instr[31]}}, Instr[19:12], Instr[20], Instr[30:21], 1'b0};
+      three2:   ImmExt = {{12{Instr31}}, Instr19to12, Instr20, Instr30to21, zero1};
       default: ImmExt = 32'bx; // undefined
     endcase
 endmodule
@@ -359,13 +376,19 @@ module ALU (input  logic [31:0] A, B,
 
   assign condinvB = ALUControl[2] ? ~B : B;
   assign sum = A + condinvB + ALUControl[2];
+  assign firstTwoOfALU = ALUControl[1:0];
+  assign zero2 = 2'b00;
+  assign one2 = 2'b01;
+  assign two2 = 2'b10;
+  assign three2 = 2'b11;
+  assign sum31 = sum[31];
 
   always_comb
-    case (ALUControl[1:0])
-      2'b00: Result = A & B;
-      2'b01: Result = A | B;
-      2'b10: Result = sum;
-      2'b11: Result = sum[31];
+    case (firstTwoOfALU)
+      zero2: Result = A & B;
+      one2: Result = A | B;
+      two2: Result = sum;
+      three2: Result = sum31;
     endcase
 
   assign Zero = (Result == 32'b0);
